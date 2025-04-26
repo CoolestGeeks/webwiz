@@ -31,26 +31,40 @@ export async function sendToWebhookAction(formData: FormData): Promise<ActionRes
 
   try {
     console.log('Sending data to webhook:', dataToSend);
-    // Assume sendDataToWebhook returns the parsed JSON response from the webhook
+    // sendDataToWebhook now returns either a JSON object or a raw string
     const responseData = await sendDataToWebhook(dataToSend, WEBHOOK_URL);
-    console.log('Data successfully sent to webhook. Response:', responseData);
+    console.log('Response received from webhook service:', responseData);
 
-    // Extract the HTML styled sentence from the response
-    // *** IMPORTANT: Adjust 'styled_sentence' if the actual field name in your n8n JSON response is different ***
-    const styledSentence = responseData?.styled_sentence; // Expecting HTML string here
+    let finalStyledSentence: string | null = null;
 
-    // Check if styledSentence is actually a string (could be undefined or null)
-    if (typeof styledSentence === 'string') {
-       return { success: true, styledSentence: styledSentence };
+    // Check the type of response received from the service
+    if (typeof responseData === 'string') {
+        // If it's a string, assume it's the direct HTML response
+        finalStyledSentence = responseData;
+        console.log('Received direct HTML string from webhook.');
+    } else if (responseData && typeof responseData === 'object' && typeof responseData.styled_sentence === 'string') {
+        // If it's an object and contains the 'styled_sentence' key as a string
+        finalStyledSentence = responseData.styled_sentence;
+        console.log('Received JSON object with styled_sentence from webhook.');
     } else {
-        // Handle case where the field exists but isn't a string or doesn't exist
-        console.warn(`Webhook response did not contain a valid string in 'styled_sentence'. Received:`, styledSentence);
-        return { success: true, styledSentence: "<p class='text-destructive'>Error: Webhook response did not contain the expected styled sentence format.</p>" };
+        // Handle unexpected response structure (neither string nor object with styled_sentence)
+        console.warn(`Webhook response was successful but did not contain a direct string or a 'styled_sentence' field. Response:`, responseData);
+        // Return a generic success but indicate the issue in the message
+        return { success: true, styledSentence: "<p class='text-destructive'>Error: Webhook response format was unexpected. Check n8n workflow output.</p>" };
+    }
+
+    // Ensure we have a non-empty string before returning
+    if (finalStyledSentence && finalStyledSentence.trim() !== '') {
+        return { success: true, styledSentence: finalStyledSentence };
+    } else {
+        // Handle cases where the string might be empty or only whitespace
+        console.warn('Webhook response contained an empty or whitespace-only styled sentence.');
+        return { success: true, styledSentence: "<p class='text-muted-foreground'>Webhook returned an empty styled sentence.</p>" };
     }
 
   } catch (error: any) {
-    console.error('Error sending data to webhook:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to send data to webhook.';
+    console.error('Error in sendToWebhookAction:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to process webhook request.';
     return { success: false, error: errorMessage };
   }
 }
