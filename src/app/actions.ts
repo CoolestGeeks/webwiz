@@ -3,7 +3,7 @@
 
 import { sendDataToWebhook } from '@/services/webhook';
 
-const WEBHOOK_URL = 'https://aghabasadsad.app.n8n.cloud/webhook-test/48652a25-8d7c-4736-aba6-33c567d7e093';
+const WEBHOOK_URL = 'https://aghabasadsad.app.n8n.cloud/webhook/48652a25-8d7c-4736-aba6-33c567d7e093'; // Updated Webhook URL
 
 interface FormData {
   sentence: string;
