@@ -1,0 +1,123 @@
+{
+  "name": "My workflow 6",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "48652a25-8d7c-4736-aba6-33c567d7e093",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "e1bde5bd-06ee-4152-b948-0937cabfeabb",
+      "name": "Webhook",
+      "webhookId": "48652a25-8d7c-4736-aba6-33c567d7e093"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Rewrite the following sentence: \"{{ $json.body.text_input }}\" in the style of: [{{ $json.body.selected_style }}].",
+        "options": {
+          "systemMessage": "Just Output the best option that comes into mind, and DO NOT output any jargon, just the Styled Sentence!\n\nYour Output should be in simple text don't use any special character, if you want to bold something use html tags.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        220,
+        0
+      ],
+      "id": "980f3294-0172-4f3b-8f2d-7142555b639e",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro-exp-03-25",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        308,
+        220
+      ],
+      "id": "229777ce-0c36-4cc1-ba83-5f1128804017",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SNMukoXPdCmXToWD",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.output }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        596,
+        0
+      ],
+      "id": "46ee9783-25f8-428d-9a7e-f3882b1bc04b",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "23b95d9f-9c8e-4135-b036-8fdc0b5c5261",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bfbae0e0a2ff8d167cf8ecf2be0c5c7646b564186690ecca84d95233e1a3f388"
+  },
+  "id": "eH6lkk0ZzpVlqqlj",
+  "tags": []
+}
