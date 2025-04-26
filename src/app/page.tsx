@@ -59,7 +59,7 @@ export default function Home() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [styledSentence, setStyledSentence] = React.useState<string | null>(
     null
-  ); // State for styled sentence
+  ); // State for styled sentence (HTML)
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -83,11 +83,11 @@ export default function Home() {
         // Assuming the webhook response is included in the action result
         // The actual property name ('styled_sentence') depends on the webhook/n8n setup
         if (result.styledSentence) {
-          setStyledSentence(result.styledSentence);
+           // Handle HTML response directly
+           setStyledSentence(result.styledSentence);
         } else {
              // Handle case where webhook didn't return the sentence as expected
-             // This might happen if the n8n workflow doesn't return it in the response
-             setStyledSentence("Styling process initiated. The result should appear here if the webhook returns it. If not, check your n8n workflow configuration to ensure it responds with the styled sentence.");
+             setStyledSentence("<p class='text-muted-foreground'>Styling process initiated. The result should appear here if the webhook returns it. If not, check your n8n workflow configuration to ensure it responds with the styled sentence.</p>");
              console.warn("Webhook succeeded but did not return a styled sentence in the response.");
         }
         // Don't reset the form immediately to allow viewing input/output
@@ -135,7 +135,11 @@ export default function Home() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-foreground">{styledSentence}</p>
+                {/* Use dangerouslySetInnerHTML to render HTML */}
+                <div
+                  className="text-foreground prose prose-sm max-w-none dark:prose-invert" // Added prose for basic HTML styling
+                  dangerouslySetInnerHTML={{ __html: styledSentence }}
+                />
               </CardContent>
             </Card>
           )}
