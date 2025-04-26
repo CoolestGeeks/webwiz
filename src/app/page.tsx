@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Sparkles } from 'lucide-react'; // Added Sparkles icon
+import { Send, Sparkles, Copy } from 'lucide-react'; // Added Sparkles and Copy icons
 
 // Define the Zod schema for form validation
 const formSchema = z.object({
@@ -60,6 +60,7 @@ export default function Home() {
   const [styledSentence, setStyledSentence] = React.useState<string | null>(
     null
   ); // State for styled sentence (HTML)
+  const [selectedStyleName, setSelectedStyleName] = React.useState<string | null>(null); // State for the selected style name
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -69,26 +70,60 @@ export default function Home() {
     },
   });
 
+  // Function to copy text to clipboard
+  const copyToClipboard = (htmlContent: string | null) => {
+    if (!htmlContent) return;
+
+    // Create a temporary element to parse HTML and extract text
+    const tempElement = document.createElement('div');
+    tempElement.innerHTML = htmlContent;
+    const textToCopy = tempElement.textContent || tempElement.innerText || '';
+
+    if (!textToCopy) {
+        toast({
+            variant: 'destructive',
+            title: 'Copy Failed',
+            description: 'Could not extract text from the styled output.',
+        });
+        return;
+    }
+
+
+    navigator.clipboard.writeText(textToCopy)
+      .then(() => {
+        toast({
+          title: 'Copied!',
+          description: 'Styled text copied to clipboard.',
+        });
+      })
+      .catch((err) => {
+        console.error('Failed to copy text: ', err);
+        toast({
+            variant: 'destructive',
+          title: 'Copy Failed',
+          description: 'Could not copy text to clipboard.',
+        });
+      });
+  };
+
+
   async function onSubmit(values: FormData) {
     setIsSubmitting(true);
     setStyledSentence(null); // Clear previous output on new submission
+    setSelectedStyleName(null); // Clear previous style name
     try {
-      // Assuming the action now returns the styled sentence if successful
       const result = await sendToWebhookAction(values);
       if (result.success) {
         toast({
           title: 'Success!',
           description: 'Your sentence has been sent and styled.',
         });
-        // Assuming the webhook response is included in the action result
-        // The actual property name ('styledSentence') depends on the webhook/n8n setup
         if (result.styledSentence) {
-           // Handle HTML response directly by storing it in state
            setStyledSentence(result.styledSentence);
+           setSelectedStyleName(values.style); // Set the selected style name
         } else {
-             // Handle case where webhook didn't return the sentence as expected
-             setStyledSentence("<p class='text-muted-foreground'>Styling process initiated. The result should appear here if the webhook returns it. If not, check your n8n workflow configuration to ensure it responds with the styled sentence in the 'styled_sentence' field of a JSON object.</p>");
-             console.warn("Webhook succeeded but did not return a styled sentence in the response field 'styled_sentence'.");
+             setStyledSentence("<p class='text-muted-foreground'>Styling process initiated. The result should appear here if the webhook returns it. If not, check your n8n workflow configuration to ensure it responds with the styled sentence.</p>");
+             console.warn("Webhook succeeded but did not return a styled sentence.");
         }
         // Don't reset the form immediately to allow viewing input/output
         // form.reset();
@@ -104,6 +139,7 @@ export default function Home() {
           error.message || 'There was a problem sending your request.',
       });
        setStyledSentence(null); // Clear output on error
+       setSelectedStyleName(null); // Clear style name on error
     } finally {
       setIsSubmitting(false);
     }
@@ -113,6 +149,7 @@ export default function Home() {
   const handleClear = () => {
     form.reset();
     setStyledSentence(null);
+    setSelectedStyleName(null);
   };
 
 
@@ -129,10 +166,19 @@ export default function Home() {
           {/* Output Preview Section */}
           {styledSentence && (
              <Card className="mb-6 border-primary/50 bg-primary/5 shadow-md">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-lg flex items-center text-primary">
-                   <Sparkles className="mr-2 h-5 w-5" /> Styled Output
+                   <Sparkles className="mr-2 h-5 w-5" /> {selectedStyleName ? `${selectedStyleName} Styled Output` : 'Styled Output'}
                 </CardTitle>
+                 <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => copyToClipboard(styledSentence)}
+                    aria-label="Copy styled output"
+                    className="h-7 w-7 text-muted-foreground hover:text-primary"
+                 >
+                    <Copy className="h-4 w-4" />
+                 </Button>
               </CardHeader>
               <CardContent>
                 {/* Use dangerouslySetInnerHTML to render HTML */}
