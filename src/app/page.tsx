@@ -81,14 +81,14 @@ export default function Home() {
           description: 'Your sentence has been sent and styled.',
         });
         // Assuming the webhook response is included in the action result
-        // The actual property name ('styled_sentence') depends on the webhook/n8n setup
+        // The actual property name ('styledSentence') depends on the webhook/n8n setup
         if (result.styledSentence) {
-           // Handle HTML response directly
+           // Handle HTML response directly by storing it in state
            setStyledSentence(result.styledSentence);
         } else {
              // Handle case where webhook didn't return the sentence as expected
-             setStyledSentence("<p class='text-muted-foreground'>Styling process initiated. The result should appear here if the webhook returns it. If not, check your n8n workflow configuration to ensure it responds with the styled sentence.</p>");
-             console.warn("Webhook succeeded but did not return a styled sentence in the response.");
+             setStyledSentence("<p class='text-muted-foreground'>Styling process initiated. The result should appear here if the webhook returns it. If not, check your n8n workflow configuration to ensure it responds with the styled sentence in the 'styled_sentence' field of a JSON object.</p>");
+             console.warn("Webhook succeeded but did not return a styled sentence in the response field 'styled_sentence'.");
         }
         // Don't reset the form immediately to allow viewing input/output
         // form.reset();

@@ -13,13 +13,12 @@ interface FormData {
 interface ActionResult {
   success: boolean;
   error?: string;
-  styledSentence?: string; // Add optional field for the styled sentence
+  styledSentence?: string; // Ensure this is a string to hold HTML
 }
 
 export async function sendToWebhookAction(formData: FormData): Promise<ActionResult> {
-  console.log('Received form data:', formData); // Log received data
+  console.log('Received form data:', formData);
 
-  // Basic validation on the server-side (optional, as Zod handles client-side)
   if (!formData.sentence || !formData.style) {
     return { success: false, error: 'Sentence and style are required.' };
   }
@@ -31,19 +30,26 @@ export async function sendToWebhookAction(formData: FormData): Promise<ActionRes
   };
 
   try {
-    console.log('Sending data to webhook:', dataToSend); // Log data being sent
-    // Assume sendDataToWebhook now returns the parsed JSON response from the webhook
+    console.log('Sending data to webhook:', dataToSend);
+    // Assume sendDataToWebhook returns the parsed JSON response from the webhook
     const responseData = await sendDataToWebhook(dataToSend, WEBHOOK_URL);
-    console.log('Data successfully sent to webhook. Response:', responseData); // Log success and response
+    console.log('Data successfully sent to webhook. Response:', responseData);
 
-    // Extract the styled sentence from the response - adjust 'styled_sentence' based on actual n8n response structure
-    const styledSentence = responseData?.styled_sentence;
+    // Extract the HTML styled sentence from the response
+    // *** IMPORTANT: Adjust 'styled_sentence' if the actual field name in your n8n JSON response is different ***
+    const styledSentence = responseData?.styled_sentence; // Expecting HTML string here
 
-    return { success: true, styledSentence: styledSentence };
+    // Check if styledSentence is actually a string (could be undefined or null)
+    if (typeof styledSentence === 'string') {
+       return { success: true, styledSentence: styledSentence };
+    } else {
+        // Handle case where the field exists but isn't a string or doesn't exist
+        console.warn(`Webhook response did not contain a valid string in 'styled_sentence'. Received:`, styledSentence);
+        return { success: true, styledSentence: "<p class='text-destructive'>Error: Webhook response did not contain the expected styled sentence format.</p>" };
+    }
 
   } catch (error: any) {
-    console.error('Error sending data to webhook:', error); // Log detailed error
-    // Ensure the error message is propagated correctly
+    console.error('Error sending data to webhook:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to send data to webhook.';
     return { success: false, error: errorMessage };
   }

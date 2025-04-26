@@ -1,13 +1,14 @@
 
 /**
  * Sends data to a specified webhook URL using a POST request and returns the parsed JSON response.
+ * Specifically looks for a 'styled_sentence' field in the JSON response.
  *
  * @param data The data object to send to the webhook.
  * @param webhookUrl The URL of the webhook.
- * @returns A promise that resolves with the parsed JSON response from the webhook.
+ * @returns A promise that resolves with the parsed JSON response object from the webhook.
  * @throws Will throw an error if the fetch request fails, the response status is not OK, or the response is not valid JSON.
  */
-export async function sendDataToWebhook(data: any, webhookUrl: string): Promise<any> { // Changed return type
+export async function sendDataToWebhook(data: any, webhookUrl: string): Promise<any> { // Return type is any as structure depends on n8n
   console.log(`Attempting to send data: ${JSON.stringify(data)} to webhook: ${webhookUrl}`);
 
   try {
@@ -15,58 +16,67 @@ export async function sendDataToWebhook(data: any, webhookUrl: string): Promise<
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // Add Accept header if the webhook specifically requires it for JSON response
-        'Accept': 'application/json',
+        'Accept': 'application/json', // Indicate we prefer JSON response
       },
       body: JSON.stringify(data),
     });
 
     console.log(`Webhook response status: ${response.status}`);
-
-    // Check if the response content type is JSON, handle non-JSON responses gracefully
     const contentType = response.headers.get('content-type');
-    let responseData: any;
+    let responseBodyText: string; // Store raw body text for error reporting
 
-    if (contentType && contentType.includes('application/json')) {
-        responseData = await response.json(); // Parse JSON only if header indicates it
-        console.log('Webhook response data (JSON):', responseData);
-    } else {
-        // Handle non-JSON responses (e.g., plain text, HTML error pages)
-        responseData = await response.text();
-        console.log('Webhook response data (non-JSON):', responseData);
-        // If the response wasn't OK but wasn't JSON, throw an error with the text content
-        if (!response.ok) {
-             throw new Error(`Webhook request failed with status ${response.status}: ${responseData}`);
-        }
-         // If response was OK but not JSON, maybe return it or handle as needed
-         // For this app, we expect JSON, so maybe warn or return a specific structure
-         console.warn("Webhook returned a non-JSON response.");
-         // You might want to return an empty object or null if JSON is strictly expected downstream
-         // return { message: "Received non-JSON response", content: responseData };
-         // Returning the text directly might break downstream expectations if JSON is assumed
-         return {}; // Return empty object if non-JSON response is not expected downstream
-    }
-
-
+    // Check if the response status is OK first
     if (!response.ok) {
-      // Even if JSON parsing succeeded above, check the status code
-      // Throw error using the parsed JSON error message if available, otherwise use status text
-      const errorMessage = responseData?.message || responseData?.error || response.statusText;
-      throw new Error(`Webhook request failed with status ${response.status}: ${errorMessage}`);
+       responseBodyText = await response.text(); // Get body text for error context
+       console.error(`Webhook request failed with status ${response.status}. Body: ${responseBodyText}`);
+       // Attempt to parse as JSON for potential error details, but prioritize status code error
+       let jsonError = null;
+       try {
+           jsonError = JSON.parse(responseBodyText);
+       } catch (e) { /* Ignore parsing error if body is not JSON */ }
+       const errorMessage = jsonError?.message || jsonError?.error || response.statusText || `HTTP status ${response.status}`;
+       throw new Error(`Webhook request failed: ${errorMessage}`);
     }
 
+    // If response is OK, proceed to check content type and parse
+    if (contentType && contentType.includes('application/json')) {
+      const responseData = await response.json();
+      console.log('Webhook response data (JSON):', responseData);
 
-    console.log('Webhook request successful.');
-    return responseData; // Return the parsed data
+       // Specifically check if the expected field exists.
+       // The frontend action handler (actions.ts) will extract this field.
+       if (responseData && typeof responseData === 'object') {
+           // It's a valid JSON object, return it as is.
+           return responseData;
+       } else {
+            // It's JSON, but not the expected object structure.
+            console.warn("Webhook returned JSON, but it's not a structured object as expected.", responseData);
+             // Return the parsed JSON anyway, maybe the action handler can still use parts of it.
+             // Or throw an error if a specific structure is strictly required.
+             // throw new Error("Webhook returned unexpected JSON format.");
+             return responseData; // Returning the parsed data for flexibility
+       }
+
+    } else {
+      // Response is OK, but not JSON
+      responseBodyText = await response.text();
+      console.log('Webhook response data (non-JSON):', responseBodyText);
+      console.warn("Webhook returned a non-JSON response even though the request was successful (2xx status).");
+      // Since the frontend expects a JSON object with 'styled_sentence',
+      // returning an empty object might be the safest way to signal this.
+      // Alternatively, throw an error if JSON is strictly required.
+       // throw new Error("Webhook returned a non-JSON response.");
+       // Treat non-JSON success as potentially missing the required field.
+       return { message: "Received non-JSON 2xx response from webhook", content: responseBodyText };
+    }
 
   } catch (error) {
-    console.error('Error during fetch operation or JSON parsing for webhook:', error);
-    // Re-throw the error so the caller (server action) can handle it
-    // Ensure it's an Error object for consistent handling
+    // Catch fetch errors, network errors, or errors thrown above
+    console.error('Error during webhook interaction:', error);
     if (error instanceof Error) {
-        throw error;
+      throw error; // Re-throw known errors
     } else {
-        throw new Error(String(error));
+      throw new Error(`An unexpected error occurred during webhook interaction: ${String(error)}`); // Wrap unknown errors
     }
   }
 }
